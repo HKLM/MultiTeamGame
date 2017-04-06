@@ -2,6 +2,7 @@
 #pragma once
 
 #include "UnrealTournament.h"
+#include "UTGameState.h"
 #include "UTMultiTeamTypes.h"
 #include "MultiTeamTeamInfo.h"
 #include "MultiTeamGameState.generated.h"

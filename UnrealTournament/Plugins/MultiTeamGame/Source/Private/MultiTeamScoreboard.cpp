@@ -1,24 +1,31 @@
 // Created by Brian 'Snake' Alexander, 2017
 #include "UnrealTournament.h"
 #include "UTHUDWidget.h"
-#include "UTScoreboard.h"
 #include "MultiTeamGameState.h"
 #include "UTDemoRecSpectator.h"
 #include "StatNames.h"
+#include "UTLineUpHelper.h"
+#include "UTScoreboard.h"
+#include "UTTeamScoreboard.h"
 #include "MultiTeamScoreboard.h"
 
 UMultiTeamScoreboard::UMultiTeamScoreboard(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	RedTeamText = NSLOCTEXT("UTTeamScoreboard", "RedTeam", "RED");
-	BlueTeamText = NSLOCTEXT("UTTeamScoreboard", "BlueTeam", "BLUE");
+	DesignedResolution = 1920.f;
+	Position = FVector2D(0.f, 0.f);
+	Size = FVector2D(1920.0f, 1080.0f);
+	ScreenPosition = FVector2D(0.f, 0.f);
+	Origin = FVector2D(0.f, 0.f);
+	bScaleByDesignedResolution = false;
+
 	GreenTeamText = NSLOCTEXT("MultiTeamScoreboard", "GreenTeam", "GREEN");
 	GoldTeamText = NSLOCTEXT("MultiTeamScoreboard", "GoldTeam", "GOLD");
-	TeamScoringHeader = NSLOCTEXT("UTTeamScoreboard", "TeamScoringBreakDownHeader", "Team Stats");
-	CellWidth = 480.f;
-	EdgeWidth = 96.f;
-	MinimapCenter = FVector2D(0.5f, 0.525f);
-	bUseRoundKills = false;
+	//CellWidth = 480.f;
+	//EdgeWidth = 96.f;
+	//MinimapCenter = FVector2D(0.5f, 0.525f);
+	GreenScoreScaling = 1.f;
+	GoldScoreScaling = 1.f;
 }
 
 void UMultiTeamScoreboard::Draw_Implementation(float RenderDelta)
@@ -29,15 +36,21 @@ void UMultiTeamScoreboard::Draw_Implementation(float RenderDelta)
 	if (GameState == nullptr) return;
 	GameNumTeams = GameState->NumTeams;
 
-	//bHaveWarmup = false;
 	float YOffset = 16.f*RenderScale;
 	DrawGamePanel(RenderDelta, YOffset);
 	DrawTeamPanel(RenderDelta, YOffset);
-	DrawScorePanel(RenderDelta, YOffset);
+	if (UTGameState != nullptr && UTGameState->GetMatchState() != MatchState::CountdownToBegin && UTGameState->GetMatchState() != MatchState::PlayerIntro)
+	{
+		DrawScorePanel(RenderDelta, YOffset);
+	}
+
 	if (GameNumTeams > 2)
 	{
 		Draw4TeamPanel(RenderDelta, YOffset);
-		Draw4ScorePanel(RenderDelta, YOffset);
+		if (UTGameState != nullptr && UTGameState->GetMatchState() != MatchState::CountdownToBegin && UTGameState->GetMatchState() != MatchState::PlayerIntro)
+		{
+			Draw4ScorePanel(RenderDelta, YOffset);
+		}
 	}
 
 	if (ShouldDrawScoringStats())
@@ -48,13 +61,15 @@ void UMultiTeamScoreboard::Draw_Implementation(float RenderDelta)
 	{
 		DrawCurrentLifeStats(RenderDelta, YOffset);
 	}
-	//DrawServerPanel(RenderDelta, FooterPosY);
 
-	DrawMinimap(RenderDelta);
-	//if (bHaveWarmup)
-	//{
-	//	DrawText(WarmupWarningText, 16.f * RenderScale, 16.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
-	//}
+	if (UTHUDOwner && UTHUDOwner->bDisplayMatchSummary && !bIsInteractive)
+	{
+		DrawMatchSummary(RenderDelta);
+	}
+	else
+	{
+		DrawMinimap(RenderDelta);
+	}
 }
 
 void UMultiTeamScoreboard::Draw4ScorePanel(float RenderDelta, float& YOffset)
@@ -64,7 +79,7 @@ void UMultiTeamScoreboard::Draw4ScorePanel(float RenderDelta, float& YOffset)
 		SelectionStack.Empty();
 	}
 	LastScorePanelYOffset = YOffset;
-	if (UTGameState)
+	if (UTGameState && (!UTGameState->LineUpHelper || !UTGameState->LineUpHelper->bIsActive || (UTHUDOwner && UTHUDOwner->bDisplayMatchSummary && bIsInteractive)))
 	{
 		Draw4ScoreHeaders(RenderDelta, YOffset);
 		Draw4PlayerScores(RenderDelta, YOffset);
@@ -280,57 +295,22 @@ void UMultiTeamScoreboard::Draw4PlayerScores(float RenderDelta, float& YOffset)
 	}
 }
 
-void UMultiTeamScoreboard::SelectNext(int32 Offset, bool bDoNoWrap)
-{
-	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
-	if (GS == nullptr) return;
-
-	GS->SortPRIArray();
-	int32 SelectedIndex = GS->PlayerArray.Find(SelectedPlayer.Get());
-
-	if (SelectedIndex >= 0 && SelectedIndex < GS->PlayerArray.Num())
-	{
-		AUTPlayerState* Next = NULL;
-		int32 Step = Offset > 0 ? 1 : -1;
-		do
-		{
-			SelectedIndex += Step;
-			if (SelectedIndex < 0 || SelectedIndex >= GS->PlayerArray.Num()) return;
-
-			Next = Cast<AUTPlayerState>(GS->PlayerArray[SelectedIndex]);
-			if (Next && !Next->bOnlySpectator && !Next->bIsSpectator && GS->OnSameTeam(Next, SelectedPlayer.Get()))
-			{
-				// Valid potential player.
-				Offset -= Step;
-				if (Offset == 0)
-				{
-					SelectedPlayer = Next;
-					return;
-				}
-			}
-		}
-		while (Next != SelectedPlayer.Get());
-	}
-	else
-	{
-		DefaultSelection(GS);
-	}
-}
-
-void UMultiTeamScoreboard::SelectionLeft()
-{
-	SelectionRight();
-}
-
 void UMultiTeamScoreboard::SelectionRight()
 {
 	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
-	if (GS == nullptr) return;
+	if (GS == NULL) return;
 	GS->SortPRIArray();
 
 	if (SelectedPlayer.IsValid())
 	{
-		DefaultSelection(GS, SelectedPlayer->GetTeamNum() == 0 ? 1 : 0);
+		if (GS->Teams.IsValidIndex(SelectedPlayer->GetTeamNum() + 1))
+		{
+			DefaultSelection(GS, SelectedPlayer->GetTeamNum() + 1);
+		}
+		else
+		{
+			DefaultSelection(GS, 0);
+		}
 	}
 	else
 	{
@@ -396,126 +376,6 @@ void UMultiTeamScoreboard::DrawClockTeamStatsLine(FText StatsName, FName StatsID
 	{
 		DrawTextStatsLine(StatsName, ClockStringGreen.ToString(), ClockStringGold.ToString(), DeltaTime, XOffset, OtherTeamPosY, StatsFontInfo, ScoreWidth, HighlightIndex);
 	}
-}
-
-AUTPlayerState* UMultiTeamScoreboard::FindTopTeamKillerFor(uint8 TeamNum)
-{
-	TArray<AUTPlayerState*> MemberPS;
-	//Check all player states. Including InactivePRIs
-	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
-	{
-		AUTPlayerState* PS = (*It);
-		if (PS && (PS->GetTeamNum() == TeamNum))
-		{
-			MemberPS.Add(PS);
-		}
-	}
-
-	if (bUseRoundKills)
-	{
-		MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
-		{
-			return A.RoundKills > B.RoundKills;
-		});
-	}
-	else
-	{
-		MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
-		{
-			return A.Kills > B.Kills;
-		});
-	}
-	return ((MemberPS.Num() > 0) && (MemberPS[0]->Kills > 0)) ? MemberPS[0] : NULL;
-}
-
-AUTPlayerState* UMultiTeamScoreboard::FindTopTeamKDFor(uint8 TeamNum)
-{
-	TArray<AUTPlayerState*> MemberPS;
-	//Check all player states. Including InactivePRIs
-	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
-	{
-		AUTPlayerState* PS = (*It);
-		if (PS && (PS->GetTeamNum() == TeamNum))
-		{
-			MemberPS.Add(PS);
-		}
-	}
-
-	MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
-	{
-		if (A.Deaths == 0)
-		{
-			if (B.Deaths == 0)
-			{
-				return A.Kills > B.Kills;
-			}
-			return true;
-		}
-		if (B.Deaths == 0)
-		{
-			return (B.Kills == 0);
-		}
-		return A.Kills / A.Deaths > B.Kills / B.Deaths;
-	});
-	return ((MemberPS.Num() > 0) && (MemberPS[0]->Kills > 0)) ? MemberPS[0] : NULL;
-}
-
-AUTPlayerState* UMultiTeamScoreboard::FindTopTeamScoreFor(uint8 TeamNum)
-{
-	TArray<AUTPlayerState*> MemberPS;
-	//Check all player states. Including InactivePRIs
-	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
-	{
-		AUTPlayerState* PS = (*It);
-		if (PS && (PS->GetTeamNum() == TeamNum))
-		{
-			MemberPS.Add(PS);
-		}
-	}
-
-	MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
-	{
-		return A.Score > B.Score;
-	});
-	return ((MemberPS.Num() > 0) && (MemberPS[0]->Score > 0.f)) ? MemberPS[0] : NULL;
-}
-
-AUTPlayerState* UMultiTeamScoreboard::FindTopTeamSPMFor(uint8 TeamNum)
-{
-	TArray<AUTPlayerState*> MemberPS;
-	//Check all player states. Including InactivePRIs
-	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
-	{
-		AUTPlayerState* PS = (*It);
-		if (PS && (PS->GetTeamNum() == TeamNum))
-		{
-			MemberPS.Add(PS);
-		}
-	}
-
-	MemberPS.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
-	{
-		float ElapsedTime = A.GetWorld()->GetGameState<AGameState>()->ElapsedTime;
-		if (A.StartTime == ElapsedTime)
-		{
-			return false;
-		}
-		if (B.StartTime == ElapsedTime)
-		{
-			return true;
-		}
-		return A.Score / (ElapsedTime - A.StartTime) > B.Score / (ElapsedTime - B.StartTime);
-	});
-	return ((MemberPS.Num() > 0) && (MemberPS[0]->Score > 0.f)) ? MemberPS[0] : NULL;
-}
-
-void UMultiTeamScoreboard::DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
-{
-	float MaxHeight = PageBottom - YPos;
-	FLinearColor PageColor = FLinearColor::Black;
-	PageColor.A = 0.5f;
-	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YPos, ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
-	DrawTeamScoreBreakdown(DeltaTime, YPos, XOffset, 0.9f*ScoreWidth, PageBottom);
 }
 
 void UMultiTeamScoreboard::DrawTeamScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)

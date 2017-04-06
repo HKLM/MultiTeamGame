@@ -20,8 +20,6 @@ AMultiTDMGameMode::AMultiTDMGameMode(const FObjectInitializer& ObjectInitializer
 	HUDClass = AUTHUD_MultiTeam::StaticClass();
 	DisplayName = NSLOCTEXT("MultiTeamGameMode", "T4DM", "Multi Team Deathmatch");
 	XPMultiplier = 3.0f;
-
-	MinPlayersToStart = 1;
 }
 
 void AMultiTDMGameMode::ScoreTeamKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)

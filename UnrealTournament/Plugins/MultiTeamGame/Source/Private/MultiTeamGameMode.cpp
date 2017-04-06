@@ -40,6 +40,7 @@ AMultiTeamGameMode::AMultiTeamGameMode(const FObjectInitializer& ObjectInitializ
 
 	//TEMP DISABLED
 	bBalanceTeams = false;
+	IntroDisplayTime = 0.f;
 
 	bGameHasImpactHammer = true;
 	bAllowURLTeamCountOverride = true;
@@ -74,6 +75,9 @@ void AMultiTeamGameMode::InitGame(const FString& MapName, const FString& Options
 	NumTeams = UGameplayStatics::GetIntOption(Options, TEXT("NumTeams"), NumTeams);
 	NumTeams = FMath::Clamp<uint8>(NumTeams, 2, MAX_NUM_TEAMS);
 	NumOfTeams = NumTeams;
+
+	BotTeamSize = UGameplayStatics::GetIntOption(Options, TEXT("BotTeam"), BotTeamSize);
+
 	if (TeamClass == NULL)
 	{
 		TeamClass = AMultiTeamTeamInfo::StaticClass();
@@ -272,49 +276,24 @@ bool AMultiTeamGameMode::MovePlayerToTeam(AController* Player, AUTPlayerState* P
 	return false;
 }
 
-void AMultiTeamGameMode::SetEndGameFocus(AUTPlayerState* Winner)
-{
-	AUTTeamInfo* WinningTeam = (Winner && Winner->Team) ? Winner->Team : MTeamGameState->FindLeadingTeam();
-
-	if (Winner == NULL) return; // It's possible to call this with Winner == NULL if timelimit is hit with noone on the server
-
-	EndGameFocus = Cast<AMultiTeamPlayerController>(Winner->GetOwner())->GetPawn();
-	AUTRemoteRedeemer* Missile = Cast<AUTRemoteRedeemer>(EndGameFocus);
-	if (Missile && Missile->Driver)
-	{
-		EndGameFocus = Missile->Driver;
-	}
-	if ( (EndGameFocus == NULL) && (Cast<AMultiTeamPlayerController>(Winner->GetOwner()) != NULL) )
-	{
-		// If the controller of the winner does not have a pawn, give him one.
-		RestartPlayer(Cast<AMultiTeamPlayerController>(Winner->GetOwner()));
-		EndGameFocus = Cast<AMultiTeamPlayerController>(Winner->GetOwner())->GetPawn();
-	}
-
-	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
-	{
-		AMultiTeamPlayerController* Controller = Cast<AMultiTeamPlayerController>(*Iterator);
-		if (Controller && Controller->GetTeamNum() != 255)
-		{
-			Controller->GameHasEnded(EndGameFocus, (Controller->GetTeamNum() == WinningTeam->GetTeamNum()));
-		}
-	}
-}
-
 void AMultiTeamGameMode::PlayEndOfMatchMessage()
 {
 	if (UTGameState && UTGameState->WinningTeam)
 	{
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-			if (PC && (PC->PlayerState != NULL) && !PC->PlayerState->bOnlySpectator)
+			APlayerController* Controller = Iterator->Get();
+			if (Controller && Controller->IsA(AUTPlayerController::StaticClass()))
 			{
-				PC->ClientReceiveLocalizedMessage(VictoryMessageClass,
-													UTGameState->WinningTeam->GetTeamNum(),
-													UTGameState->WinnerPlayerState,
-													PC->PlayerState,
-													UTGameState->WinningTeam);
+				AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
+				if (PC && Cast<AUTPlayerState>(PC->PlayerState))
+				{
+					PC->ClientReceiveLocalizedMessage(VictoryMessageClass,
+													  UTGameState->WinningTeam->GetTeamNum(),
+													  UTGameState->WinnerPlayerState,
+													  PC->PlayerState,
+													  UTGameState->WinningTeam);
+				}
 			}
 		}
 	}

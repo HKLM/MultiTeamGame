@@ -19,7 +19,7 @@ class MULTITEAMGAME_API AMultiTeamGameMode : public AUTTeamGameMode
 	AMultiTeamGameState* MTeamGameState;
 
 	/** Used by the UI to set the NumTeams value */
-	UPROPERTY(Config, EditDefaultsOnly, Category = MultiTeam)
+	UPROPERTY(Config, EditDefaultsOnly, BlueprintReadOnly, Category = MultiTeam)
 	int32 NumOfTeams;
 
 	/** The main color used in each teams material skins. Value is given to MultiTeamGameState for replication. Array index == TeamNum */
@@ -35,7 +35,6 @@ class MULTITEAMGAME_API AMultiTeamGameMode : public AUTTeamGameMode
 	virtual void AnnounceMatchStart() override;
 	virtual bool ChangeTeam(AController* Player, uint8 NewTeam = 255, bool bBroadcast = true) override;
 	virtual bool MovePlayerToTeam(AController* Player, AUTPlayerState* PS, uint8 NewTeam) override;
-	virtual void SetEndGameFocus(AUTPlayerState* Winner) override;
 	virtual void PlayEndOfMatchMessage() override;
 	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps) override;
 	void BuildServerResponseRules(FString& OutRules) override;
