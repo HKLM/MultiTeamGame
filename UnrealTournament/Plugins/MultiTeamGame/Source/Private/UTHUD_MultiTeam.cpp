@@ -61,14 +61,7 @@ FLinearColor AUTHUD_MultiTeam::GetWidgetTeamColor()
 		AUTPlayerState* PS = HUDPawn ? Cast<AUTPlayerState>(HUDPawn->PlayerState) : NULL;
 		if (PS != nullptr)
 		{
-			switch (PS->GetTeamNum())
-			{
-				case 0: return FLinearColor(0.15, 0.0, 0.0, 1.0); break;
-				case 1: return FLinearColor(0.025, 0.025, 0.1, 1.0); break;
-				case 2: return FLinearColor(0.0, 0.25, 0.0, 1.0); break;
-				case 3: return FLinearColor(0.25, 0.25, 0.0, 1.0); break;
-				default: break;
-			}
+			return GetLinearColorByTeamIndex(PS->GetTeamNum());
 		}
 	}
 
@@ -96,7 +89,7 @@ FLinearColor AUTHUD_MultiTeam::GetLinearColorByTeamIndex(int32 TeamIndex)
 		case 1: return FLinearColor(0.025f, 0.025f, 1.0f, 1.0f); break;
 		case 2: return FLinearColor(0.0f, 1.0f, 0.0f, 1.0f); break;
 		case 3: return FLinearColor(1.0f, 1.0f, 0.0f, 1.0f); break;
-		case 4: return FLinearColor(1.0f, 1.0f, 0.0f, 1.0f); break;
-		default: return FLinearColor(1.0f, 1.0f, 0.0f, 1.0f); break;
+		case 4: return FLinearColor(1.0f, 1.0f, 1.0f, 1.0f); break;
+		default: return FLinearColor(0.0f, 0.0f, 0.0f, 1.0f); break;
 	}
 }

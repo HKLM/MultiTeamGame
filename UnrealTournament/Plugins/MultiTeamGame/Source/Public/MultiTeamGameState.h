@@ -60,7 +60,7 @@ public:
 	 * @param	TeamIndex		TeamIndex of the team to lookup
 	 * @return	FLinearColor	The TeamBodySkinColor for the givin TeamIndex
 	 */
-	UFUNCTION(BlueprintCallable, Category = TeamSkins)
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Get Team Skin Color", Tooltip = "Gets the characters team skin color to match the given TeamIndex.", Keywords = "teamskin teamskincolor skin"), Category = TeamSkins)
 	inline FLinearColor GetTeamSkinColor(uint8 TeamIndex) const { return TeamBodySkinColor[TeamIndex]; };
 
 	/** 
@@ -68,7 +68,7 @@ public:
 	 * @param	TeamIndex		TeamIndex of the team to lookup
 	 * @return	FLinearColor	The TeamSkinOverlayColor for the givin TeamIndex
 	 */
-	UFUNCTION(BlueprintCallable, Category = TeamSkins)
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Get Team Skin Overlay Color", Tooltip = "Gets the characters team skin overlay color to match the given TeamIndex.", Keywords = "teamskin overlaycolor skin"), Category = TeamSkins)
 	inline FLinearColor GetTeamSkinOverlayColor(uint8 TeamIndex) const { return TeamSkinOverlayColor[TeamIndex]; };
 
 	virtual void SetWinner(AUTPlayerState* NewWinner) override;

@@ -18,7 +18,7 @@ AMultiTDMGameMode::AMultiTDMGameMode(const FObjectInitializer& ObjectInitializer
 	bForceRespawn = true;
 	bGameHasImpactHammer = true;
 	HUDClass = AUTHUD_MultiTeam::StaticClass();
-	DisplayName = NSLOCTEXT("MultiTeamGameMode", "T4DM", "Multi Team Deathmatch");
+	DisplayName = NSLOCTEXT("MultiTeamGameMode", "MTDM", "Multi Team Deathmatch");
 	XPMultiplier = 3.0f;
 }
 

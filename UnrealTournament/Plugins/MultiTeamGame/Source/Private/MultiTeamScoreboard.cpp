@@ -1,31 +1,19 @@
 // Created by Brian 'Snake' Alexander, 2017
 #include "UnrealTournament.h"
 #include "UTHUDWidget.h"
+#include "UTTeamScoreboard.h"
 #include "MultiTeamGameState.h"
 #include "UTDemoRecSpectator.h"
 #include "StatNames.h"
-#include "UTLineUpHelper.h"
-#include "UTScoreboard.h"
-#include "UTTeamScoreboard.h"
 #include "MultiTeamScoreboard.h"
 
 UMultiTeamScoreboard::UMultiTeamScoreboard(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	DesignedResolution = 1920.f;
-	Position = FVector2D(0.f, 0.f);
-	Size = FVector2D(1920.0f, 1080.0f);
-	ScreenPosition = FVector2D(0.f, 0.f);
-	Origin = FVector2D(0.f, 0.f);
-	bScaleByDesignedResolution = false;
-
 	GreenTeamText = NSLOCTEXT("MultiTeamScoreboard", "GreenTeam", "GREEN");
 	GoldTeamText = NSLOCTEXT("MultiTeamScoreboard", "GoldTeam", "GOLD");
-	//CellWidth = 480.f;
-	//EdgeWidth = 96.f;
-	//MinimapCenter = FVector2D(0.5f, 0.525f);
-	GreenScoreScaling = 1.f;
-	GoldScoreScaling = 1.f;
+
+	Size = FVector2D(1920.0f, 1000.0f);
 }
 
 void UMultiTeamScoreboard::Draw_Implementation(float RenderDelta)
@@ -36,7 +24,7 @@ void UMultiTeamScoreboard::Draw_Implementation(float RenderDelta)
 	if (GameState == nullptr) return;
 	GameNumTeams = GameState->NumTeams;
 
-	float YOffset = 16.f*RenderScale;
+	float YOffset = 48.f*RenderScale;
 	DrawGamePanel(RenderDelta, YOffset);
 	DrawTeamPanel(RenderDelta, YOffset);
 	if (UTGameState != nullptr && UTGameState->GetMatchState() != MatchState::CountdownToBegin && UTGameState->GetMatchState() != MatchState::PlayerIntro)
@@ -79,7 +67,7 @@ void UMultiTeamScoreboard::Draw4ScorePanel(float RenderDelta, float& YOffset)
 		SelectionStack.Empty();
 	}
 	LastScorePanelYOffset = YOffset;
-	if (UTGameState && (!UTGameState->LineUpHelper || !UTGameState->LineUpHelper->bIsActive || (UTHUDOwner && UTHUDOwner->bDisplayMatchSummary && bIsInteractive)))
+	if (UTGameState)
 	{
 		Draw4ScoreHeaders(RenderDelta, YOffset);
 		Draw4PlayerScores(RenderDelta, YOffset);
@@ -189,59 +177,6 @@ void UMultiTeamScoreboard::Draw4ScoreHeaders(float RenderDelta, float& YOffset)
 	YOffset += Height + 4.f * RenderScale;
 }
 
-void UMultiTeamScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
-{
-	if (UTGameState == nullptr)
-	{
-		return;
-	}
-
-	int32 NumSpectators = 0;
-	int32 XOffset = ScaledEdgeSize;
-	float MaxYOffset = 0.f;
-	for (int8 Team = 0; Team < 2; Team++)
-	{
-		int32 Place = 1;
-		float DrawOffset = YOffset;
-		int32 NumPlayersToShow = ShouldDrawScoringStats() ? 5 : UTGameState->PlayerArray.Num();
-		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
-		{
-			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-			if (PlayerState)
-			{
-				if (!PlayerState->bOnlySpectator)
-				{
-					if (PlayerState->GetTeamNum() == Team)
-					{
-						DrawPlayer(Place, PlayerState, RenderDelta, XOffset, DrawOffset);
-						Place++;
-						DrawOffset += CellHeight*RenderScale;
-						if (Place > NumPlayersToShow)
-						{
-							break;
-						}
-					}
-				}
-				else if (Team == 0 && (Cast<AUTDemoRecSpectator>(UTPlayerOwner) == nullptr && !PlayerState->bIsDemoRecording))
-				{
-					NumSpectators++;
-				}
-			}
-		}
-		MaxYOffset = FMath::Max(DrawOffset, MaxYOffset);
-		XOffset = Canvas->ClipX - ScaledCellWidth - ScaledEdgeSize;
-	}
-	YOffset = MaxYOffset;
-
-	if ((UTGameState->PlayerArray.Num() <= 28) && (NumSpectators > 0) && !ShouldDrawScoringStats())
-	{
-		FText SpectatorCount = (NumSpectators == 1)
-			? OneSpectatorWatchingText
-			: FText::Format(SpectatorsWatchingText, FText::AsNumber(NumSpectators));
-		DrawText(SpectatorCount, Size.X * 0.5f, 765.f*RenderScale, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor(0.75f, 0.75f, 0.75f, 1.0f), ETextHorzPos::Center, ETextVertPos::Bottom);
-	}
-}
-
 void UMultiTeamScoreboard::Draw4PlayerScores(float RenderDelta, float& YOffset)
 {
 	if (UTGameState == nullptr)
@@ -292,29 +227,6 @@ void UMultiTeamScoreboard::Draw4PlayerScores(float RenderDelta, float& YOffset)
 			? OneSpectatorWatchingText
 			: FText::Format(SpectatorsWatchingText, FText::AsNumber(NumSpectators));
 		DrawText(SpectatorCount, Size.X * 0.5f, 765.f*RenderScale, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor(0.75f, 0.75f, 0.75f, 1.0f), ETextHorzPos::Center, ETextVertPos::Bottom);
-	}
-}
-
-void UMultiTeamScoreboard::SelectionRight()
-{
-	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
-	if (GS == NULL) return;
-	GS->SortPRIArray();
-
-	if (SelectedPlayer.IsValid())
-	{
-		if (GS->Teams.IsValidIndex(SelectedPlayer->GetTeamNum() + 1))
-		{
-			DefaultSelection(GS, SelectedPlayer->GetTeamNum() + 1);
-		}
-		else
-		{
-			DefaultSelection(GS, 0);
-		}
-	}
-	else
-	{
-		DefaultSelection(GS, 0);
 	}
 }
 
@@ -376,38 +288,6 @@ void UMultiTeamScoreboard::DrawClockTeamStatsLine(FText StatsName, FName StatsID
 	{
 		DrawTextStatsLine(StatsName, ClockStringGreen.ToString(), ClockStringGold.ToString(), DeltaTime, XOffset, OtherTeamPosY, StatsFontInfo, ScoreWidth, HighlightIndex);
 	}
-}
-
-void UMultiTeamScoreboard::DrawTeamScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
-{
-	Canvas->SetLinearDrawColor(FLinearColor::White);
-	FStatsFontInfo StatsFontInfo;
-	StatsFontInfo.TextRenderInfo.bEnableShadow = true;
-	StatsFontInfo.TextRenderInfo.bClipText = true;
-	StatsFontInfo.TextFont = UTHUDOwner->TinyFont;
-	bHighlightStatsLineTopValue = true;
-
-	float XL, SmallYL;
-	Canvas->TextSize(UTHUDOwner->TinyFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
-	StatsFontInfo.TextHeight = SmallYL;
-	float MedYL;
-	Canvas->TextSize(UTHUDOwner->SmallFont, TeamScoringHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
-	Canvas->DrawText(UTHUDOwner->SmallFont, TeamScoringHeader, XOffset + 0.5f*(ScoreWidth - XL), YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
-	YPos += 1.1f * MedYL;
-
-	if (UTGameState == NULL || UTGameState->Teams.Num() < 2 || UTGameState->Teams[0] == NULL || UTGameState->Teams[1] == NULL)
-	{
-		return;
-	}
-
-	// draw team icons
-	float IconHeight = MedYL;
-	DrawTexture(UTHUDOwner->HUDAtlas, XOffset + ValueColumn*ScoreWidth - IconHeight, YPos, IconHeight, IconHeight, UTHUDOwner->TeamIconUV[0].X, UTHUDOwner->TeamIconUV[0].Y, 72, 72, 1.f, UTGameState->Teams[0]->TeamColor);
-	DrawTexture(UTHUDOwner->HUDAtlas, XOffset + ScoreColumn*ScoreWidth - IconHeight, YPos, IconHeight, IconHeight, UTHUDOwner->TeamIconUV[1].X, UTHUDOwner->TeamIconUV[1].Y, 72, 72, 1.f, UTGameState->Teams[1]->TeamColor);
-	Canvas->DrawText(UTHUDOwner->MediumFont, FText::AsNumber(UTGameState->Teams[0]->Score), XOffset + ValueColumn*ScoreWidth, YPos - 0.5f * MedYL, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
-	Canvas->DrawText(UTHUDOwner->MediumFont, FText::AsNumber(UTGameState->Teams[1]->Score), XOffset + ScoreColumn*ScoreWidth, YPos - 0.5f * MedYL, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
-	YPos += 1.5f * MedYL;
-	DrawTeamStats(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom, StatsFontInfo);
 }
 
 void UMultiTeamScoreboard::Draw4TeamScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)

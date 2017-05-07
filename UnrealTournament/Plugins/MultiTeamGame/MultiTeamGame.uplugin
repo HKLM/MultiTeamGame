@@ -2,8 +2,8 @@
 	"FileVersion" : 3,
 	
 	"FriendlyName" : "MultiTeam DeathMatch Game Mode",
-	"Version" : 0,
-	"VersionName" : "0.1.1",
+	"Version" : 1,
+	"VersionName" : "1.0",
 	"CreatedBy": "Brian 'Snake' Alexander",
 	"EngineVersion" : "4.7.0",
 	"Description" : "4 Team DeathMatch",

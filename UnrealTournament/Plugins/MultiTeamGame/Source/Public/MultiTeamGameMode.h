@@ -18,8 +18,8 @@ class MULTITEAMGAME_API AMultiTeamGameMode : public AUTTeamGameMode
 	UPROPERTY(BlueprintReadOnly, Category = MultiTeam)
 	AMultiTeamGameState* MTeamGameState;
 
-	/** Used by the UI to set the NumTeams value */
-	UPROPERTY(Config, EditDefaultsOnly, BlueprintReadOnly, Category = MultiTeam)
+	/** Used by CreateGameURLOptions() to set the NumTeams value. */
+	UPROPERTY(Config, EditDefaultsOnly, Category = MultiTeam)
 	int32 NumOfTeams;
 
 	/** The main color used in each teams material skins. Value is given to MultiTeamGameState for replication. Array index == TeamNum */

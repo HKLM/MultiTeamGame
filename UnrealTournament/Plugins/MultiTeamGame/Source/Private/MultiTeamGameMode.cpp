@@ -38,9 +38,7 @@ AMultiTeamGameMode::AMultiTeamGameMode(const FObjectInitializer& ObjectInitializ
 	VictoryMessageClass = UMultiTeamVictoryMessage::StaticClass();
 	MapPrefix = TEXT("DM");
 
-	//TEMP DISABLED
-	bBalanceTeams = false;
-	IntroDisplayTime = 0.f;
+	bDelayedStart = false;
 
 	bGameHasImpactHammer = true;
 	bAllowURLTeamCountOverride = true;
@@ -48,11 +46,6 @@ AMultiTeamGameMode::AMultiTeamGameMode(const FObjectInitializer& ObjectInitializ
 	NumTeams = 4;
 	MaxSquadSize = 2;
 	bHideInUI = false;
-
-	//TeamColors[0] = FLinearColor(1.0f, 0.0f, 0.0f, 1.0f);
-	//TeamColors[1] = FLinearColor(0.0f, 0.0f, 1.0f, 1.0f);
-	//TeamColors[2] = FLinearColor(0.0f, 0.5f, 0.0f, 1.0f);
-	//TeamColors[3] = FLinearColor(0.75f, 0.75f, 0.0f, 1.0f);
 
 	TeamBodySkinColor[0] = FLinearColor(4.6f, 0.1f, 0.1f, 1.0f);
 	TeamBodySkinColor[1] = FLinearColor(0.1f, 0.1f, 4.6f, 1.0f);
@@ -75,9 +68,6 @@ void AMultiTeamGameMode::InitGame(const FString& MapName, const FString& Options
 	NumTeams = UGameplayStatics::GetIntOption(Options, TEXT("NumTeams"), NumTeams);
 	NumTeams = FMath::Clamp<uint8>(NumTeams, 2, MAX_NUM_TEAMS);
 	NumOfTeams = NumTeams;
-
-	BotTeamSize = UGameplayStatics::GetIntOption(Options, TEXT("BotTeam"), BotTeamSize);
-
 	if (TeamClass == NULL)
 	{
 		TeamClass = AMultiTeamTeamInfo::StaticClass();
@@ -108,6 +98,7 @@ void AMultiTeamGameMode::InitGameState()
 	if (MTeamGameState)
 	{
 		MTeamGameState->NumTeams = NumTeams;
+		//Notify gamestate of TeamsSkin colors to use
 		for (uint8 i = 0; i < 4; i++)
 		{
 			MTeamGameState->TeamBodySkinColor[i] = TeamBodySkinColor[i];
@@ -282,18 +273,14 @@ void AMultiTeamGameMode::PlayEndOfMatchMessage()
 	{
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			APlayerController* Controller = Iterator->Get();
-			if (Controller && Controller->IsA(AUTPlayerController::StaticClass()))
+			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+			if (PC && (PC->PlayerState != NULL) && !PC->PlayerState->bOnlySpectator)
 			{
-				AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
-				if (PC && Cast<AUTPlayerState>(PC->PlayerState))
-				{
-					PC->ClientReceiveLocalizedMessage(VictoryMessageClass,
-													  UTGameState->WinningTeam->GetTeamNum(),
-													  UTGameState->WinnerPlayerState,
-													  PC->PlayerState,
-													  UTGameState->WinningTeam);
-				}
+				PC->ClientReceiveLocalizedMessage(VictoryMessageClass,
+													UTGameState->WinningTeam->GetTeamNum(),
+													UTGameState->WinnerPlayerState,
+													PC->PlayerState,
+													UTGameState->WinningTeam);
 			}
 		}
 	}
